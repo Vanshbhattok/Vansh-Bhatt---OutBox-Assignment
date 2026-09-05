@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String          @id @default(uuid())
+  googleId        String?         @unique
+  email           String          @unique
+  name            String
+  avatar          String?
+  slackWebhookUrl String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  campaigns       EmailCampaign[]
+}
+
+model SenderAccount {
+  id               String           @id @default(uuid())
+  email            String           @unique
+  name             String
+  maxEmailsPerHour Int              @default(200)
+  createdAt        DateTime         @default(now())
+  scheduledEmails  ScheduledEmail[]
+}
+
+model EmailCampaign {
+  id              String           @id @default(uuid())
+  userId          String?
+  user            User?            @relation(fields: [userId], references: [id])
+  subject         String
+  body            String           @db.Text
+  startTime       DateTime
+  delaySeconds    Int              @default(2)
+  hourlyLimit     Int              @default(200)
+  totalRecipients Int
+  createdAt       DateTime         @default(now())
+  emails          ScheduledEmail[]
+}
+
+model ScheduledEmail {
+  id                 String         @id @default(uuid())
+  campaignId         String?
+  campaign           EmailCampaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  senderId           String?
+  sender             SenderAccount? @relation(fields: [senderId], references: [id])
+  senderEmail        String
+  recipient          String
+  subject            String
+  body               String         @db.Text
+  status             String         @default("SCHEDULED")
+  scheduledAt        DateTime
+  sentAt             DateTime?
+  etherealPreviewUrl String?
+  errorMessage       String?
+  retryCount         Int            @default(0)
+  jobId              String         @unique
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+}
