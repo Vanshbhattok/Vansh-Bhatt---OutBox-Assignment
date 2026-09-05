@@ -47,8 +47,24 @@ export default function Home() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    
+    // Strict 3.5s timeout guarantee so table loading spinner never hangs indefinitely
+    const timeoutFallback = new Promise((resolve) =>
+      setTimeout(
+        () =>
+          resolve([
+            { emails: [] },
+            { emails: [] },
+            { senders: [] },
+            { stats: null, queue: null },
+            { connected: false },
+          ]),
+        3500
+      )
+    );
+
     try {
-      const [schedRes, sentRes, sendersRes, statsRes, slackRes] = await Promise.all([
+      const fetchPromises = Promise.all([
         apiService.getScheduledEmails().catch(() => ({ emails: [] })),
         apiService.getSentEmails().catch(() => ({ emails: [] })),
         apiService.getSenders().catch(() => ({ senders: [] })),
@@ -56,12 +72,17 @@ export default function Home() {
         apiService.getSlackStatus(user?.email).catch(() => ({ connected: false })),
       ]);
 
-      setScheduledEmails(schedRes.emails || []);
-      setSentEmails(sentRes.emails || []);
-      setSenders(sendersRes.senders || []);
-      setStats(statsRes.stats || null);
-      setQueue(statsRes.queue || null);
-      setSlackConnected(slackRes.connected || false);
+      const [schedRes, sentRes, sendersRes, statsRes, slackRes]: any = await Promise.race([
+        fetchPromises,
+        timeoutFallback,
+      ]);
+
+      setScheduledEmails(schedRes?.emails || []);
+      setSentEmails(sentRes?.emails || []);
+      setSenders(sendersRes?.senders || []);
+      setStats(statsRes?.stats || null);
+      setQueue(statsRes?.queue || null);
+      setSlackConnected(slackRes?.connected || false);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
     } finally {
